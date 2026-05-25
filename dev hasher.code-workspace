@@ -1,0 +1,38 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "cli launch",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "./main.py",
+				"console": "internalConsole",
+				"justMyCode": true
+			},
+			{
+				"name": "ui Launch",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "./main_ui.py",
+				"console": "internalConsole",
+				"justMyCode": true
+			},
+			{
+				"name": "debug launch",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${file}",
+				"console": "internalConsole",
+				"justMyCode": true
+			}
+		],
+		"compounds": []
+	},
+	"settings": {}
+}

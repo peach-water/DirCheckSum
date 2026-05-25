@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyinstaller>=6.20.0",
+    "pyside6-fluent-widgets>=1.11.2",
     "pytest>=9.0.3",
 ]
