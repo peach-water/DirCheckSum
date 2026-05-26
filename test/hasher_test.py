@@ -63,6 +63,13 @@ class TestDirectoryHahser:
         res3 = self.DH.loadFromFile()
         for key in res2.keys():
             assert res2[key] == res3[key]
+        # 计算空目录时不生成计算结果
+        self.DH.result = {}
+        test_path = os.path.join(TEST_DIR, "empty")
+        if not os.path.exists(test_path):
+            os.makedirs(test_path, exist_ok=True)
+        self.DH.setDirectory(test_path)
+        assert len(os.listdir(test_path)) == 0
 
     def test_verify(self, setup):
         test_path = os.path.join(TEST_DIR, "verify")

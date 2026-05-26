@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from src.core.directory_hash import DirectoryHasher
+from src.core.directory_hash import getDirectoryHasher
 
 
 def build_parser():
@@ -17,7 +17,7 @@ def build_parser():
 
 def main(parser: ArgumentParser):
     args = parser.parse_args()
-    DH = DirectoryHasher()
+    DH = getDirectoryHasher()
     DH.setDirectory(args.path)
     DH.setHashAlgorithm(args.hash)
     if args.verify:

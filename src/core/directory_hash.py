@@ -11,6 +11,15 @@ FILE_LOST = 1  # 对比哈希计算结果发现文件缺失
 FILE_CHANGED = 2  # 发现文件有变化
 FILE_NEW_ADD = 3  # 发现有新文件加入
 
+G_DirectoryHash = None
+
+
+def getDirectoryHasher():
+    global G_DirectoryHash
+    if G_DirectoryHash is None:
+        G_DirectoryHash = DirectoryHasher()
+    return G_DirectoryHash
+
 
 @dataclass
 class FileState:
@@ -53,6 +62,7 @@ class DirectoryHasher:
 
     def setDirectory(self, path: str):
         self.directory = path
+        self.logger.info(f"set directory: {path}")
 
     def setHashAlgorithm(self, hash_algorithm: str):
         try:
@@ -61,9 +71,12 @@ class DirectoryHasher:
             pass
         except NotImplementedError as e:
             raise NotImplementedError(e)
+        self.logger.info(f"set hash algorithm: {hash_algorithm}")
         self.hash_algorithm = hash_algorithm
 
     def saveToFile(self):
+        if len(self.result) == 0:
+            return
         with open(os.path.join(self.directory, f"{self.hash_algorithm}.json"), "w") as f:
             f.write(json.dumps(self.result, indent=4))
 
@@ -111,7 +124,6 @@ class DirectoryHasher:
         self.error_list.sort()
         return len(self.error_list) == 0
 
-
     def getErrorListReport(self) -> list[str]:
         """
         依据错误记录生成文件对比报告
@@ -124,6 +136,21 @@ class DirectoryHasher:
                 res.append("FILE CHANGED: " + s.file_path)
             elif s.state == FILE_NEW_ADD:
                 res.append("FILE NEW ADD: " + s.file_path)
+        return res
+
+    def getHashListReport(self) -> list[list[str]]:
+        """
+        返回hash计算结果，返回值是一个两列的list列表。
+        如果没有结果，返回None
+        """
+        if len(self.result) == 0:
+            return None
+        res = []
+        for key, val in self.result.items():
+            row = []
+            row.append(key)
+            row.append(val)
+            res.append(row)
         return res
 
     def _computeHash(self):
@@ -148,5 +175,6 @@ class DirectoryHasher:
                 worker_pool[file_path.replace(self.directory, ".")] = worker
         wait(worker_pool.values())
 
+        self.result.clear()
         for key, value in worker_pool.items():
             self.result[key] = value.result()
