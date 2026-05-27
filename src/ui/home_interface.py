@@ -1,6 +1,8 @@
+import json
 import os
 import queue
 import time
+from functools import partial
 from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -22,13 +24,13 @@ from qfluentwidgets.components import (
     InfoBarPosition,
     LineEdit,
     PrimaryPushButton,
+    ProgressBar,
     PushButton,
     RoundMenu,
     TableWidget,
     TransparentDropDownPushButton,
 )
 from src.hasher import calculateHash
-from typing import Optional
 
 from src.constant import HASH_ALGORITHM
 from src.core.directory_hash import DirectoryHasher
@@ -63,8 +65,6 @@ class TaskThread(QThread):
 
 class QDirectoryHasher(QThread, DirectoryHasher):
     process = Signal(int)
-    completed = Signal(str)
-    failed = Signal(str, str) # 传递出错信息
     
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -74,6 +74,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
         self.tasks = queue.Queue() # 记录需要计算哈希值的文件
         self.max_concurrent_thread: int = 10 # 最大并发
         self.working_task: dict[str, TaskThread] = {} # 当前正在执行任务
+        self.logger = getLogger("QDirectoryHasher")
 
     def _computeHash(self):
         """
@@ -111,7 +112,9 @@ class QDirectoryHasher(QThread, DirectoryHasher):
             if not self.tasks.empty():
                 self.process.emit(self.completed_task)
             else:
+                self.process.emit(self.total_task)
                 self.completed.emit("完成")
+                self.is_running = False
             if running_thread < self.max_concurrent_thread:
                 try:
                     while running_thread < self.max_concurrent_thread:
@@ -139,12 +142,25 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                     self.working_task.pop(key)
             time.sleep(0.1)
     
-    def close(self):
-        # TODO
+    def saveToFile(self, path: str = None):
+        """保存文件"""
+        if path is None:
+            return super().saveToFile()
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        with open(os.path.join(self.directory, f"{self.hash_algorithm}.json"), "w") as f:
+            f.write(json.dumps(self.result, indent=4))
+
+    def stop(self):
         self.is_running = False
-        for key, val in self.working_task.items():
-            thread = val.currentThread()
-            thread.terminate()
+
+    def close(self):
+        # TODO 会让主线程退出，调用主QObject的close了
+        self.is_running = False
+        self.working_task.clear()
+        self.tasks = queue.Queue()
 
 
 class HomeInterface(QWidget):
@@ -172,6 +188,7 @@ class HomeInterface(QWidget):
         self._setupTopLayout()
         self._setupSecondLayout()
         self._setupTableLayout()
+        self._setupBottomLayout()
 
     def _setupTopLayout(self):
         # 创建一个水平布局
@@ -183,22 +200,39 @@ class HomeInterface(QWidget):
         )
         top_layout.addWidget(self.command_bar, 1)
 
-        # 设置校验和算法
-        self.layout_button = TransparentDropDownPushButton(
+        # 设置校验和算法按钮
+        layout_button = TransparentDropDownPushButton(
             self.tr("校验和算法"), self, FluentIcon.LAYOUT
         )
-        self.layout_button.setFixedHeight(34)
-        self.layout_button.setMinimumWidth(125)
-        self.layout_menu = RoundMenu(parent=self)
-        for layout in HASH_ALGORITHM:
-            action = Action(text=layout)
-            # action.triggered.connect()
-            self.layout_menu.addAction(action)
-        self.layout_button.setMenu(self.layout_menu)
-        self.command_bar.addWidget(self.layout_button)
+        layout_button.setFixedHeight(34)
+        layout_button.setMinimumWidth(125)
+        layout_button.setToolTip("默认 sha256")
+        layout_menu = RoundMenu(parent=self)
+        actions = []
+        for alg in HASH_ALGORITHM:
+            action = Action(text=alg)
+            # 使用偏函数固定第二个参数
+            action.triggered.connect(partial(self.setHashAlgorithm, alg))
+            actions.append(action)
+        layout_menu.addActions(actions)
+        layout_button.setMenu(layout_menu)
+        self.command_bar.addWidget(layout_button)
 
-        # 设置开始按钮
+        # 设置保存按钮
+        save_button = PushButton(
+            self.tr("保存"), self, FluentIcon.SAVE
+        )
+        save_button.setFixedHeight(34)
+        save_button.clicked.connect(self.saveHashResult)
+        self.command_bar.addWidget(save_button)
+
+        # 设置开始、终止按钮
         top_layout.addStretch()
+        self.cancel_button = PrimaryPushButton(
+            self.tr("终止"), self, icon=FluentIcon.DELETE
+        )
+        self.cancel_button.clicked.connect(self.cancelCompute)
+        top_layout.addWidget(self.cancel_button)
         self.start_button = PrimaryPushButton(
             self.tr("开始"), self, icon=FluentIcon.PLAY)
         self.start_button.setFixedHeight(34)
@@ -239,13 +273,29 @@ class HomeInterface(QWidget):
         self.tri_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Interactive)
         # 设置列宽
-        self.tri_table.setColumnWidth(0, 180)
+        self.tri_table.setColumnWidth(0, 200)
         self.tri_table.setColumnWidth(1, 380)
         # 设置表格不可编辑
         self.tri_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        # 处理表格双击事件
+        self.tri_table.doubleClicked.connect(self.tableDoubleClicked)
+        # 增加工具提示
+        self.tri_table.setToolTip("双击行可以打开对应目录")
 
         tri_layout.addWidget(self.tri_table)
         self.main_layout.addLayout(tri_layout)
+    
+    def _setupBottomLayout(self):
+        """设置底边进度条"""
+        bot_layout = QHBoxLayout()
+        self.process_bar = ProgressBar()
+        self.process_bar.setRange(0, 100)
+        self.process_bar.setFixedHeight(18)
+        self.process_bar.setValue(0)
+        self.process_bar.setHidden(True)
+        bot_layout.addWidget(self.process_bar)
+
+        self.main_layout.addLayout(bot_layout)
 
     def _updateDirectory(self, path):
         """点击按钮和修改输入框后自动更新"""
@@ -259,18 +309,22 @@ class HomeInterface(QWidget):
 
     def _showprocess(self, process_num:int) :
         """
-        展示当前进度，未来改成进度条
+        展示当前进度
         """
-        # TODO
-        InfoBar.info(
-            "完成数量",
-            str(process_num) + "/" + str(self.dirHasher.total_task),
-            duration=500,
-            position=InfoBarPosition.BOTTOM_RIGHT,
-            parent=self
-        )
+        self.process_bar.setHidden(False)
+        percent = int(process_num / self.dirHasher.total_task * 100)
+        self.process_bar.setValue(percent)
+        if process_num == self.dirHasher.total_task:
+            InfoBar.success(
+                "通知",
+                "计算完成",
+                position=InfoBarPosition.TOP_RIGHT,
+                parent=self
+            )
+            self.process_bar.setHidden(True)
 
     def openDirectoryFolder(self):
+        """浏览按钮功能实现"""
         home_path = os.path.abspath(os.path.join("."))
         file_name = QFileDialog.getExistingDirectory(self, "设置目录", home_path)
         if file_name == "":
@@ -279,8 +333,72 @@ class HomeInterface(QWidget):
         self.sec_input.setText(file_name)
         self._updateDirectory(file_name)
 
+    def saveHashResult(self):
+        """保存按钮功能实现"""
+        if self.dirHasher.getHashListReport() is None:
+            InfoBar.info(
+                "提示",
+                "没有需要保存的结果",
+                duration=3000,
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+            return
+        home_path = self.dirHasher.directory
+        if home_path is None or not os.path.exists(home_path):
+            home_path = os.path.abspath(os.path.join("."))
+        file_name = QFileDialog.getExistingDirectory(self, "选择保存位置", home_path)
+        if file_name == "":
+            return
+        
+        try:
+            self.dirHasher.saveToFile(file_name)
+            InfoBar.success(
+                "成功",
+                f"已保存到 {self.dirHasher.directory}",
+                duration=2000,
+                parent=self,
+                position=InfoBarPosition.TOP_RIGHT
+            )
+            self.logger.info(f"保存至 {self.dirHasher.directory}")
+        except Exception as e:
+            self.logger.error(f"保存错误：{e}")
+            InfoBar.error(
+                "错误",
+                f"保存出现错误: {e}",
+                duration=3000,
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+
+    def setHashAlgorithm(self, hash_algorithm):
+        """设定当前哈希校验和算法"""
+        try:
+            self.dirHasher.setHashAlgorithm(hash_algorithm)
+            InfoBar.success(
+                "成功",
+                f"当前校验和算法为 {hash_algorithm}",
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+        except NotImplementedError:
+            InfoBar.error(
+                "错误",
+                f"校验和算法 {hash_algorithm} 不支持",
+                duration=3000,
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+
+    def cancelCompute(self):
+        """取消当前计算任务，终止按钮功能"""
+        if self.dirHasher.isRunning():
+            self.dirHasher.stop()
+            self.process_bar.setHidden(True)
+
     def startCompute(self):
-        """开始按钮功能"""
+        """开始当前计算任务，开始按钮功能"""
         if self.sec_input.displayText() == "":
             InfoBar.warning(
                 "警告",
@@ -310,6 +428,14 @@ class HomeInterface(QWidget):
             )
             return
         self.dirHasher._computeHash()
+
+    def tableDoubleClicked(self, index):
+        """处理表格双击事件，打开对应行所在目录"""
+        row = index.row()
+        file_path = self.tri_table.item(row, 0).text()
+        file_path_dir = os.path.dirname(file_path)
+        file_path_dir = os.path.join(self.dirHasher.directory, file_path_dir)
+        open_folder(file_path_dir)
 
     def closeEvent(self, event):
         self.dirHasher.close()
