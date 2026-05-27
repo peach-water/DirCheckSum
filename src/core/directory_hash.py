@@ -4,12 +4,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 
+from src.constant import FILE_CHANGED, FILE_LOST, FILE_NEW_ADD
 from src.hasher import calculateHash
 from src.utils.logger import getLogger
-
-FILE_LOST = 1  # 对比哈希计算结果发现文件缺失
-FILE_CHANGED = 2  # 发现文件有变化
-FILE_NEW_ADD = 3  # 发现有新文件加入
 
 G_DirectoryHash = None
 
@@ -77,17 +74,21 @@ class DirectoryHasher:
     def saveToFile(self):
         if len(self.result) == 0:
             return
-        with open(os.path.join(self.directory, f"{self.hash_algorithm}.json"), "w") as f:
-            f.write(json.dumps(self.result, indent=4))
+        with open(os.path.join(self.directory, "checksum.json"), "w") as f:
+            data = {
+                "hash": self.hash_algorithm,
+                "data": self.result
+            }
+            f.write(json.dumps(data, indent=4))
 
     def loadFromFile(self) -> dict:
-        file_path = os.path.join(self.directory, f"{self.hash_algorithm}.json")
+        file_path = os.path.join(self.directory, "checksum.json")
         if not os.path.exists(file_path):
-            err = f"{self.hash_algorithm}.json not founded in {self.directory}"
+            err = f"checksum.json not founded in {self.directory}"
             self.logger.warning(err)
             raise FileNotFoundError(err)
 
-        with open(os.path.join(self.directory, f"{self.hash_algorithm}.json"), "r") as f:
+        with open(os.path.join(self.directory, "checksum.json"), "r") as f:
             res = "".join(f.readlines())
             try:
                 res = json.loads(res)
@@ -103,9 +104,8 @@ class DirectoryHasher:
         读取目录下的哈希计算结果，验证目录完整性
         """
         self.error_list.clear()
-        hash_from_file = self.loadFromFile()
+        hash_from_file = self.loadFromFile().get("data")
         keys_from_file = set(hash_from_file.keys())
-        self._computeHash()
         keys_from_compute = set(self.result.keys())
         for key in hash_from_file.keys():
             if key in keys_from_compute:
@@ -167,7 +167,7 @@ class DirectoryHasher:
         worker_pool = {}
         for root, dirs, files in os.walk(self.directory):
             for file_name in files:
-                if file_name == f"{self.hash_algorithm}.json":
+                if file_name == "checksum.json":
                     # 跳过记录当前hash算法hash值的文件
                     continue
                 file_path = os.path.join(root, file_name)

@@ -60,7 +60,7 @@ class TestDirectoryHahser:
             assert key in res2
             assert res1[key] == res2[key]
         self.DH.saveToFile()
-        res3 = self.DH.loadFromFile()
+        res3 = self.DH.loadFromFile().get("data")
         for key in res2.keys():
             assert res2[key] == res3[key]
         # 计算空目录时不生成计算结果
@@ -74,8 +74,9 @@ class TestDirectoryHahser:
     def test_verify(self, setup):
         test_path = os.path.join(TEST_DIR, "verify")
         self.DH.setDirectory(test_path)
+        self.DH._computeHash()
         assert self.DH.verify() == False
-        from src.core.directory_hash import FILE_LOST, FILE_CHANGED, FILE_NEW_ADD
+        from src.constant import FILE_LOST, FILE_CHANGED, FILE_NEW_ADD
         error_list = self.DH.error_list
         assert len(error_list) == 4
         # 应该是前2条报文件缺失，第3条错误报文件变化，第4条报文件新增

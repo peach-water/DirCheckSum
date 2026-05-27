@@ -4,6 +4,7 @@ from PySide6.QtGui import QGuiApplication
 from qfluentwidgets import FluentIcon, FluentWindow
 
 from src.ui.home_interface import HomeInterface
+from src.ui.verify_interface import VerifyInterface
 
 class MainWindow(FluentWindow):
     def __init__(self):
@@ -11,7 +12,9 @@ class MainWindow(FluentWindow):
         self.initWindow()
 
         self.homeInterface = HomeInterface(self)
+        self.verifyInterface = VerifyInterface(self)
         self.addSubInterface(self.homeInterface, FluentIcon.HOME, self.tr("主页"))
+        self.addSubInterface(self.verifyInterface, FluentIcon.VPN, self.tr("完整性校验"))
 
     def initWindow(self):
         """初始化窗口"""

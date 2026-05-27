@@ -8,10 +8,10 @@
 		"version": "0.2.0",
 		"configurations": [
 			{
-				"name": "cli launch",
+				"name": "cli test",
 				"type": "debugpy",
 				"request": "launch",
-				"program": "./main.py",
+				"program": "./main_test.py",
 				"console": "internalConsole",
 				"justMyCode": true
 			},

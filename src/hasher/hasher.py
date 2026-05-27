@@ -47,7 +47,7 @@ def calculateDirHash(dir_path: str, hashAlgorithm: str = "sha256") -> dict[str, 
     result = {}
     for root, dirs, files in os.walk(dir_path):
         for file_name in files:
-            if file_name == f"{hashAlgorithm}.json":
+            if file_name == "checksum.json":
                 continue
             file_path = os.path.join(root, file_name)
             hash_value = calculateHash(file_path, hashAlgorithm)
