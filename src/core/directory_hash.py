@@ -1,12 +1,16 @@
 
 import json
 import os
+import queue
+import time
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 
 from src.constant import FILE_CHANGED, FILE_LOST, FILE_NEW_ADD
 from src.hasher import calculateHash
 from src.utils.logger import getLogger
+
+MAX_THREAD = 10
 
 G_DirectoryHash = None
 
@@ -38,7 +42,7 @@ class DirectoryHasher:
     """
 
     def __init__(self):
-        self.pool = ThreadPoolExecutor()  # 执行线程池
+        self.pool = ThreadPoolExecutor(max_workers=MAX_THREAD)  # 执行线程池
         self.directory = None  # 目录位置
         self.result = {}  # 哈希计算结果
         self.logger = getLogger("directoryHasher")
@@ -97,6 +101,7 @@ class DirectoryHasher:
                 err = f"{file_path} json file has some mistakes"
                 self.logger.warning(err)
                 raise e
+        self.logger.info("加载校验和文件成功")
         return res
 
     def verify(self) -> bool:
@@ -164,17 +169,38 @@ class DirectoryHasher:
             self.logger.warning(f"Path {self.directory} is not directory")
             raise FileNotFoundError(f"Path {self.directory} is not directory")
 
-        worker_pool = {}
+        tasks = queue.Queue()
         for root, dirs, files in os.walk(self.directory):
             for file_name in files:
                 if file_name == "checksum.json":
-                    # 跳过记录当前hash算法hash值的文件
                     continue
-                file_path = os.path.join(root, file_name)
-                worker = self.pool.submit(calculateHash, file_path)
-                worker_pool[file_path.replace(self.directory, ".")] = worker
-        wait(worker_pool.values())
+                tasks.put(os.path.join(root, file_name))
 
-        self.result.clear()
-        for key, value in worker_pool.items():
-            self.result[key] = value.result()
+        worker_pool = {}
+        while not tasks.empty() or len(worker_pool) > 0:
+            workding_thread = sum(
+                1 for val in worker_pool.values() if val.running())
+            if workding_thread <= MAX_THREAD:
+                try:
+                    while workding_thread <= MAX_THREAD:
+                        task = tasks.get_nowait()
+                        worker = self.pool.submit(
+                            calculateHash,
+                            task
+                        )
+                        worker_pool[task.replace(self.directory, ".")] = worker
+                        workding_thread += 1
+                except queue.Empty:
+                    pass
+
+            if len(worker_pool) > 0:
+                remove_keys = set()
+                for key, val in worker_pool.items():
+                    if not val.running():
+                        self.result[key] = val.result()
+                        remove_keys.add(key)
+                        self.logger.info(f"计算完成: {key}")
+                for key in remove_keys:
+                    worker_pool.pop(key)
+                if len(remove_keys) == 0:
+                    time.sleep(0.1)

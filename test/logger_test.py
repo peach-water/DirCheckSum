@@ -4,10 +4,10 @@ import pytest
 
 from src.utils.logger import getLogger
 
+
 class TestLogger:
     def test_logger(self):
-        return 
-        logger = getLogger("test",logging.DEBUG)
+        logger = getLogger("test", logging.DEBUG)
         import time
         local_time = time.strftime(
             "%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
