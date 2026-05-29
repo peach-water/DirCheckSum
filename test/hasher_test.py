@@ -1,5 +1,6 @@
 import os
 import pytest
+import subprocess
 
 
 from src.core.directory_hash import DirectoryHasher
@@ -49,7 +50,7 @@ class TestDirectoryHahser:
         """
         测试主要功能
         """
-        test_path = os.path.join(TEST_DIR, "dataForTest")
+        test_path = os.path.join(TEST_DIR, "dataForTest\\")
         self.DH.setDirectory(test_path)
         assert self.DH.directory == test_path
 
@@ -106,3 +107,11 @@ class TestDirectoryHahser:
         from json import JSONDecodeError
         with pytest.raises(JSONDecodeError):
             self.DH.loadFromFile()
+
+    def test_main_cli(self):
+        t = subprocess.Popen(["uv", "run", "main.py", "test/data/dataForTest", "-v"])
+        t.wait()
+        if t.returncode == 9009:
+            print("未找到uv环境")
+            return
+        assert t.returncode == 0

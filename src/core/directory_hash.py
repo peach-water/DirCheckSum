@@ -90,7 +90,7 @@ class DirectoryHasher:
                 res = None
                 err = f"{file_path} json file has some mistakes"
                 self.logger.warning(err)
-                raise json.JSONDecodeError from e
+                raise e
         self.logger.info("加载校验和文件成功")
         return res
 
@@ -99,7 +99,17 @@ class DirectoryHasher:
         读取目录下的哈希计算结果，验证目录完整性
         """
         self.error_list.clear()
-        hash_from_file = self.loadFromFile().get("data")
+        # 把 ./a.txt 统一转化为 a.txt，去掉相对路径符号
+        data = self.loadFromFile().get("data")
+        hash_from_file = {}
+        for key in data.keys():
+            new_key = key
+            if key.startswith("./"):
+                new_key = key[2:]
+            elif key.startswith(".\\"):
+                new_key = key[2:]
+            hash_from_file[new_key] = data[key]
+        del data
         keys_from_file = set(hash_from_file.keys())
         keys_from_compute = set(self.result.keys())
         for key in hash_from_file.keys():
@@ -126,7 +136,7 @@ class DirectoryHasher:
         res = []
         for s in self.error_list:
             if s.state == FILE_LOST:
-                res.append("FILE LSOT: " + s.file_path)
+                res.append("FILE    LSOT: " + s.file_path)
             elif s.state == FILE_CHANGED:
                 res.append("FILE CHANGED: " + s.file_path)
             elif s.state == FILE_NEW_ADD:
@@ -179,7 +189,7 @@ class DirectoryHasher:
                             task,
                             self.hash_algorithm
                         )
-                        worker_pool[task.replace(self.directory, ".")] = worker
+                        worker_pool[os.path.relpath(task, self.directory)] = worker
                         workding_thread += 1
                 except queue.Empty:
                     pass

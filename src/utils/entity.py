@@ -105,9 +105,9 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                     if val.statu == RUNNING or val.statu == WAITING:
                         continue
                     elif val.statu == COMPLETE:
-                        self.result[key.replace(self.directory, ".")] = val.result
+                        self.result[os.path.relpath(key, self.directory)] = val.result
                     elif val.statu == FAILED:
-                        self.failed.emit(key.replace(self.directory, "."), val.error_message)
+                        self.failed.emit(os.path.relpath(key, self.directory), val.error_message)
                     remove_keys.add(key)
                     self.completed_task += 1
 
