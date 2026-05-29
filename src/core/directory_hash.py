@@ -12,16 +12,6 @@ from src.utils.logger import getLogger
 
 MAX_THREAD = 10
 
-G_DirectoryHash = None
-
-
-def getDirectoryHasher():
-    global G_DirectoryHash
-    if G_DirectoryHash is None:
-        G_DirectoryHash = DirectoryHasher()
-    return G_DirectoryHash
-
-
 @dataclass
 class FileState:
     file_path: str
@@ -186,7 +176,8 @@ class DirectoryHasher:
                         task = tasks.get_nowait()
                         worker = self.pool.submit(
                             calculateHash,
-                            task
+                            task,
+                            self.hash_algorithm
                         )
                         worker_pool[task.replace(self.directory, ".")] = worker
                         workding_thread += 1

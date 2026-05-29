@@ -20,17 +20,17 @@ class TestHasher:
 
     def test_hasher(self, file_dark_qss):
         test_path = os.path.join(TEST_DIR, "dataForTest")
-        res = calculateDirHash(test_path)
+        res = calculateDirHash(test_path, "sha256")
         assert len(res) == 3
         for key in res.keys():
-            assert calculateHash(os.path.join(test_path, key)) == res[key]
+            assert calculateHash(os.path.join(test_path, key), "sha256") == res[key]
 
         with pytest.raises(NotImplementedError) as errinfo:
             hash = calculateHash(file_path=file_dark_qss, hashAlgorithm="cyc")
         assert "not implemented" in str(errinfo.value)
 
         with pytest.raises(FileNotFoundError) as errinfo:
-            hash = calculateHash(file_path="cyc")
+            hash = calculateHash(file_path="cyc", hashAlgorithm="sha256")
 
 
 class TestDirectoryHahser:
@@ -54,7 +54,7 @@ class TestDirectoryHahser:
         assert self.DH.directory == test_path
 
         self.DH._computeHash()
-        res1 = calculateDirHash(test_path)
+        res1 = calculateDirHash(test_path, "sha256")
         res2 = self.DH.result
         for key in res1.keys():
             assert key in res2

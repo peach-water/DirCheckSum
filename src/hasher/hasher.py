@@ -3,7 +3,8 @@ import os
 
 from src.utils.logger import getLogger
 
-def calculateHash(file_path: str, hashAlgorithm: str = "sha256"):
+
+def calculateHash(file_path: str, hashAlgorithm: str):
     hasher = None
     logger = getLogger("hasher")
     if hashAlgorithm == "md5":
@@ -16,7 +17,8 @@ def calculateHash(file_path: str, hashAlgorithm: str = "sha256"):
         hasher = hashlib.sha512()
     else:
         logger.error(f"hash algorithm {hashAlgorithm} not implemented.")
-        raise NotImplementedError(f"hash algorithm {hashAlgorithm} not implemented.")
+        raise NotImplementedError(
+            f"hash algorithm {hashAlgorithm} not implemented.")
     logger.info(f"use hash algorithm {hashAlgorithm}")
 
     if file_path is None or not os.path.exists(file_path):
@@ -32,7 +34,7 @@ def calculateHash(file_path: str, hashAlgorithm: str = "sha256"):
         return
 
 
-def calculateDirHash(dir_path: str, hashAlgorithm: str = "sha256") -> dict[str, str]:
+def calculateDirHash(dir_path: str, hashAlgorithm: str) -> dict[str, str]:
     """
     不会被使用，主要用于测试目录遍历正确性
     """
