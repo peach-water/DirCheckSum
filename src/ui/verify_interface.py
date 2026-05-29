@@ -208,7 +208,7 @@ class VerifyInterface(QWidget):
         except FileNotFoundError:
             InfoBar.error(
                 "错误",
-                f"{self.dirHasher.hash_algorithm}.json 不存在",
+                "checksum.json 不存在",
                 duration=3000,
                 position=InfoBarPosition.TOP,
                 parent=self
@@ -217,7 +217,7 @@ class VerifyInterface(QWidget):
         except json.JSONDecodeError:
             InfoBar.error(
                 "错误",
-                f"{self.dirHasher.hash_algorithm}.json 不完整",
+                "checksum.json 不完整",
                 duration=3000,
                 position=InfoBarPosition.TOP,
                 parent=self
