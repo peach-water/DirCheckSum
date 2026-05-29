@@ -1,6 +1,5 @@
 import json
 import os
-from functools import partial
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -12,7 +11,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from qfluentwidgets import (
-    Action,
     FluentIcon,
     InfoBar,
 )
@@ -21,15 +19,14 @@ from qfluentwidgets.components import (
     CommandBar,
     InfoBarPosition,
     LineEdit,
+    MessageBox,
     PrimaryPushButton,
     ProgressBar,
     PushButton,
-    RoundMenu,
     TableWidget,
-    TransparentDropDownPushButton,
 )
 
-from src.constant import HASH_ALGORITHM, FILE_STATUS
+from src.constant import FILE_STATUS
 from src.utils.entity import QDirectoryHasher
 from src.utils.logger import getLogger
 from src.utils.platform_util import open_folder
@@ -275,21 +272,21 @@ class VerifyInterface(QWidget):
 
         everything_is_ok = len(data) == 0
         if everything_is_ok:
-            InfoBar.success(
-                "成功",
-                "所有文件通过校验",
-                duration=3000,
-                position=InfoBarPosition.TOP,
+            m = MessageBox(
+                "通知",
+                "所有文件通过校验检查",
                 parent=self
             )
+            m.cancelButton.setHidden(True)
+            m.exec()
         else:
-            InfoBar.info(
-                "提示",
-                "部分文件存在错误",
-                duration=3000,
-                position=InfoBarPosition.TOP_RIGHT,
+            m = MessageBox(
+                "通知",
+                f"{len(data)} 个文件存在错误，已列在表格中",
                 parent=self
             )
+            m.cancelButton.setHidden(True)
+            m.exec()
 
         self.tri_table.setRowCount(len(data))
         for i, s in enumerate(data):

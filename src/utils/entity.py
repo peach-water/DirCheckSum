@@ -82,7 +82,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
             running_thread = sum(
                 1 for th in self.working_task.values() if th.statu == RUNNING
             )
-            if not self.tasks.empty():
+            if not self.tasks.empty() or len(self.working_task) > 0:
                 self.process.emit(self.completed_task)
             else:
                 self.process.emit(self.total_task)
