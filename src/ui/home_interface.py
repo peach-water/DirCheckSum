@@ -255,7 +255,7 @@ class HomeInterface(QWidget):
                 position=InfoBarPosition.TOP,
                 parent=self
             )
-        except NotImplementedError:
+        except NotImplementedError as e:
             InfoBar.error(
                 "错误",
                 f"校验和算法 {hash_algorithm} 不支持",
@@ -263,6 +263,7 @@ class HomeInterface(QWidget):
                 position=InfoBarPosition.TOP,
                 parent=self
             )
+            raise NotImplementedError from e
 
     def cancelCompute(self):
         """取消当前计算任务，终止按钮功能"""

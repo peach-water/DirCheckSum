@@ -61,7 +61,7 @@ class DirectoryHasher:
         except FileNotFoundError:
             pass
         except NotImplementedError as e:
-            raise NotImplementedError(e)
+            raise NotImplementedError from e
         self.logger.info(f"set hash algorithm: {hash_algorithm}")
         self.hash_algorithm = hash_algorithm
 
@@ -90,7 +90,7 @@ class DirectoryHasher:
                 res = None
                 err = f"{file_path} json file has some mistakes"
                 self.logger.warning(err)
-                raise e
+                raise json.JSONDecodeError from e
         self.logger.info("加载校验和文件成功")
         return res
 
