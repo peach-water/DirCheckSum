@@ -61,43 +61,12 @@ class VerifyInterface(QWidget):
 
     def _setupTopLayout(self):
         """创建功能菜单"""
+        return
         top_layout = QHBoxLayout()
         top_layout.setSpacing(15)
         command_bar = CommandBar()
         command_bar.setToolButtonStyle(Qt.ToolButtonStyle())
         top_layout.addWidget(command_bar, 1)
-
-        # 设置校验和算法按钮
-        layout_button = TransparentDropDownPushButton(
-            self.tr("校验和算法"), self, FluentIcon.LAYOUT
-        )
-        layout_button.setFixedHeight(34)
-        layout_button.setMinimumWidth(125)
-        layout_button.setToolTip("默认 sha256")
-        layout_menu = RoundMenu(parent=self)
-        actions = []
-        for alg in HASH_ALGORITHM:
-            act = Action(text=alg)
-            act.triggered.connect(partial(self.setHashAlgorithm, alg))
-            actions.append(act)
-        layout_menu.addActions(actions)
-        layout_button.setMenu(layout_menu)
-        command_bar.addWidget(layout_button)
-
-        # 开始按钮、终止按钮
-        top_layout.addStretch()
-        cancel_button = PrimaryPushButton(
-            self.tr("终止"), self, icon=FluentIcon.DELETE
-        )
-        cancel_button.setFixedHeight(34)
-        cancel_button.clicked.connect(self.cancelCompute)
-        top_layout.addWidget(cancel_button)
-        start_button = PrimaryPushButton(
-            self.tr("开始"), self, icon=FluentIcon.PLAY
-        )
-        start_button.setFixedHeight(34)
-        start_button.clicked.connect(self.startCompute)
-        top_layout.addWidget(start_button)
 
         self.main_layout.addLayout(top_layout)
 
@@ -115,9 +84,23 @@ class VerifyInterface(QWidget):
         sec_button.setFixedHeight(34)
         sec_button.clicked.connect(self.openDirectoryFolder)
 
+        # 开始按钮、终止按钮
+        cancel_button = PrimaryPushButton(
+            self.tr("终止"), self, icon=FluentIcon.DELETE
+        )
+        cancel_button.setFixedHeight(34)
+        cancel_button.clicked.connect(self.cancelCompute)
+        start_button = PrimaryPushButton(
+            self.tr("开始"), self, icon=FluentIcon.PLAY
+        )
+        start_button.setFixedHeight(34)
+        start_button.clicked.connect(self.startCompute)
+
         sec_layout.addWidget(sec_label)
         sec_layout.addWidget(self.sec_input)
         sec_layout.addWidget(sec_button)
+        sec_layout.addWidget(cancel_button)
+        sec_layout.addWidget(start_button)
         self.main_layout.addLayout(sec_layout)
 
     def _setupTableLayout(self):
