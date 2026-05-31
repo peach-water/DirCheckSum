@@ -185,7 +185,11 @@ class HomeInterface(QWidget):
         展示当前进度
         """
         self.process_bar.setHidden(False)
-        percent = int(process_num / self.dirHasher.total_task * 100)
+        try:
+            percent = int(process_num / self.dirHasher.total_task * 100)
+        except ZeroDivisionError as e:
+            self.logger.error(f"计算 {self.dirHasher.directory} 下未统计到文件")
+            raise ZeroDivisionError(f"计算 {self.dirHasher.directory} 下未统计到文件")
         self.process_bar.setValue(percent)
         if process_num == self.dirHasher.total_task:
             InfoBar.success(
@@ -296,6 +300,15 @@ class HomeInterface(QWidget):
             InfoBar.warning(
                 "警告",
                 "目标并非目录",
+                duration=2000,
+                position=InfoBarPosition.TOP,
+                parent=self
+            )
+            return
+        if len(os.listdir(path)) == 0:
+            InfoBar.warning(
+                "警告",
+                "目录为空",
                 duration=2000,
                 position=InfoBarPosition.TOP,
                 parent=self

@@ -70,7 +70,8 @@ class TestDirectoryHahser:
         if not os.path.exists(test_path):
             os.makedirs(test_path, exist_ok=True)
         self.DH.setDirectory(test_path)
-        assert len(os.listdir(test_path)) == 0
+        self.DH._computeHash()
+        assert len(self.DH.result) == 0
 
     def test_verify(self, setup):
         test_path = os.path.join(TEST_DIR, "verify")
