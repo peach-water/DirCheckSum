@@ -103,12 +103,12 @@ class HomeInterface(QWidget):
             self.tr("终止"), self, icon=FluentIcon.DELETE
         )
         self.cancel_button.setFixedHeight(34)
-        self.cancel_button.clicked.connect(self.cancelCompute)
+        self.cancel_button.clicked.connect(self._cancelCompute)
         top_layout.addWidget(self.cancel_button)
         self.start_button = PrimaryPushButton(
             self.tr("开始"), self, icon=FluentIcon.PLAY)
         self.start_button.setFixedHeight(34)
-        self.start_button.clicked.connect(self.startCompute)
+        self.start_button.clicked.connect(self._startCompute)
         self.start_button.setFixedHeight(34)
         top_layout.addWidget(self.start_button)
 
@@ -151,13 +151,13 @@ class HomeInterface(QWidget):
         # 设置表格不可编辑
         self.tri_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         # 处理表格双击事件
-        self.tri_table.doubleClicked.connect(self.tableDoubleClicked)
+        self.tri_table.doubleClicked.connect(self._tableDoubleClicked)
         # 增加工具提示
         self.tri_table.setToolTip("双击行可以打开对应目录")
 
         tri_layout.addWidget(self.tri_table)
         self.main_layout.addLayout(tri_layout)
-    
+
     def _setupBottomLayout(self):
         """设置底边进度条"""
         bot_layout = QHBoxLayout()
@@ -180,7 +180,7 @@ class HomeInterface(QWidget):
             parent=self
         )
 
-    def _showprocess(self, process_num:int) :
+    def _showprocess(self, process_num: int):
         """
         展示当前进度
         """
@@ -223,7 +223,7 @@ class HomeInterface(QWidget):
         file_name = QFileDialog.getExistingDirectory(self, "选择保存位置", home_path)
         if file_name == "":
             return
-        
+
         try:
             self.dirHasher.saveToFile(file_name)
             InfoBar.success(
@@ -265,13 +265,13 @@ class HomeInterface(QWidget):
             )
             raise NotImplementedError from e
 
-    def cancelCompute(self):
+    def _cancelCompute(self):
         """取消当前计算任务，终止按钮功能"""
         if self.dirHasher.isRunning():
             self.dirHasher.stop()
             self.process_bar.setHidden(True)
 
-    def startCompute(self):
+    def _startCompute(self):
         """开始当前计算任务，开始按钮功能"""
         if self.sec_input.displayText() == "":
             InfoBar.warning(
@@ -301,9 +301,15 @@ class HomeInterface(QWidget):
                 parent=self
             )
             return
+        InfoBar.info(
+            "提示",
+            f"开始计算目录 {self.dirHasher.directory}",
+            position=InfoBarPosition.TOP_RIGHT,
+            parent=self
+        )
         self.dirHasher._computeHash()
 
-    def tableDoubleClicked(self, index):
+    def _tableDoubleClicked(self, index):
         """处理表格双击事件，打开对应行所在目录"""
         row = index.row()
         file_path = self.tri_table.item(row, 0).text()
@@ -330,7 +336,7 @@ class HomeInterface(QWidget):
         table = self.data
         if table is None:
             return
-        
+
         if len(table) == 0:
             self.logger.warning(f"table row = 0, not valid")
             return

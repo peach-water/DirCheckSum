@@ -7,7 +7,9 @@ def getLogger(name: str = "global",
               default_fmt: str = "%(asctime)s - %(name)s %(levelname)s - %(message)s - from : %(funcName)s",
               info_fmt: str = "%(levelname)s %(message)s",
               date_fmt: str = "%Y-%m-%d %H:%M:%S",
-              console: bool = True):
+              console: bool = True,  # 是否启用终端日志记录器
+              file: bool = True  # 是否启用文件日志记录器
+              ):
     """
     初始化一个日志器
     """
@@ -33,6 +35,8 @@ def getLogger(name: str = "global",
             l_console_Handle.setLevel(logging.DEBUG)
             l_console_Handle.setFormatter(l_formatter)
             l_logger.addHandler(l_console_Handle)
-        l_logger.addHandler(l_log_Handle)
+        # 设置文件日志器
+        if file:
+            l_logger.addHandler(l_log_Handle)
 
     return l_logger
