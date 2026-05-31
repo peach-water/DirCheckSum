@@ -19,7 +19,9 @@ class FileState:
     new_hash: str
     state: int
 
-    def __lt__(self, other: FileState):
+    # nuitka转化成C的时候不能循环定义，所以需要去掉对象
+    # def __lt__(self, other: FileState):
+    def __lt__(self, other):
         if self.state == other.state:
             return self.file_path < other.file_path
         return self.state < other.state
