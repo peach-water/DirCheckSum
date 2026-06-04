@@ -86,18 +86,18 @@ class VerifyInterface(QWidget):
             self.tr("终止"), self, icon=FluentIcon.DELETE
         )
         cancel_button.setFixedHeight(34)
-        cancel_button.clicked.connect(self.cancelCompute)
-        start_button = PrimaryPushButton(
+        cancel_button.clicked.connect(self._cancelCompute)
+        self.start_button = PrimaryPushButton(
             self.tr("开始"), self, icon=FluentIcon.PLAY
         )
-        start_button.setFixedHeight(34)
-        start_button.clicked.connect(self.startCompute)
+        self.start_button.setFixedHeight(34)
+        self.start_button.clicked.connect(self._startCompute)
 
         sec_layout.addWidget(sec_label)
         sec_layout.addWidget(self.sec_input)
         sec_layout.addWidget(sec_button)
         sec_layout.addWidget(cancel_button)
-        sec_layout.addWidget(start_button)
+        sec_layout.addWidget(self.start_button)
         self.main_layout.addLayout(sec_layout)
 
     def _setupTableLayout(self):
@@ -172,7 +172,7 @@ class VerifyInterface(QWidget):
                 parent=self
             )
 
-    def startCompute(self):
+    def _startCompute(self):
         """开始按钮的功能"""
         if self.sec_input.displayText() == "":
             InfoBar.warning(
@@ -225,7 +225,7 @@ class VerifyInterface(QWidget):
             return
         self.dirHasher._computeHash()
 
-    def cancelCompute(self):
+    def _cancelCompute(self):
         """取消当前计算任务"""
         if self.dirHasher.isRunning():
             self.dirHasher.stop()
@@ -278,7 +278,8 @@ class VerifyInterface(QWidget):
                 parent=self
             )
             m.cancelButton.setHidden(True)
-            m.exec()
+            # m.exec() 会让qtbot.waitSignal卡住
+            m.show()
         else:
             m = MessageBox(
                 "通知",
@@ -286,7 +287,7 @@ class VerifyInterface(QWidget):
                 parent=self
             )
             m.cancelButton.setHidden(True)
-            m.exec()
+            m.show()
 
         self.tri_table.setRowCount(len(data))
         for i, s in enumerate(data):
@@ -301,7 +302,7 @@ class VerifyInterface(QWidget):
     def _showProcess(self, process_num: int):
         """展示当前进度"""
         self.process_bar.setHidden(False)
-        percent = int(process_num / self.dirHasher.total_task * 100)
+        percent = int(process_num / max(self.dirHasher.total_task, 1) * 100)
         self.process_bar.setValue(percent)
         if process_num == self.dirHasher.total_task:
             InfoBar.info(

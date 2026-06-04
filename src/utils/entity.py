@@ -66,7 +66,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
             self.logger.warning("QDH directory setting is None")
             return
         if not os.path.exists(self.directory):
-            self.logger.error(f"QDH Path {self.directory} is not exist")
+            self.logger.warning(f"QDH Path {self.directory} is not exist")
             return
         if not os.path.isdir(self.directory):
             self.logger.warning(

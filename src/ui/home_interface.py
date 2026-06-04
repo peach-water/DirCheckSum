@@ -78,7 +78,8 @@ class HomeInterface(QWidget):
         layout_button.setFixedHeight(34)
         layout_button.setMinimumWidth(125)
         layout_button.setToolTip("默认 sha256")
-        layout_menu = RoundMenu(parent=self)
+        layout_menu = RoundMenu(parent=layout_button)
+        layout_menu.setObjectName("hash_algorithm_round_menu")
         actions = []
         for alg in HASH_ALGORITHM:
             action = Action(text=alg)

@@ -3,7 +3,9 @@ import os
 import pytest
 import time
 from PySide6.QtCore import Qt
+from qfluentwidgets import Action, RoundMenu
 
+from src.constant import HASH_ALGORITHM
 from src.hasher import calculateDirHash
 from src.ui.home_interface import HomeInterface
 from src.utils.entity import QDirectoryHasher
@@ -46,7 +48,7 @@ class TestHomeInterface:
         with pytest.raises(NotImplementedError):
             HI.setHashAlgorithm("cyc")
 
-    def test_start_button(self, qtbot, monkeypatch):
+    def test_start_button(self, qtbot):
         """测试开始按钮"""
         HI = HomeInterface(None)
         qtbot.addWidget(HI)
@@ -68,3 +70,10 @@ class TestHomeInterface:
         HI.sec_input.setText(os.path.join(TEST_DIR, "empty"))
         HI.sec_input.editingFinished.emit()
         qtbot.mouseClick(HI.start_button, Qt.MouseButton.LeftButton)
+
+        # 测试设置算法功能
+        # 可以通过测试，因为不是通过模仿用户点击触发，所以意义不是很大
+        # hash_algorithm_round_menu = HI.command_bar.findChild(RoundMenu, name="hash_algorithm_round_menu", options=Qt.FindChildOption.FindChildrenRecursively)
+        # for i, alg in enumerate(HASH_ALGORITHM):
+        #     hash_algorithm_round_menu.actions()[i].trigger()
+        #     assert HI.dirHasher.hash_algorithm == alg
