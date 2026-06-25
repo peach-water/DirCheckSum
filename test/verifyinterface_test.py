@@ -1,6 +1,4 @@
-import json
 import os
-import pytest
 import time
 from PySide6.QtCore import Qt
 
