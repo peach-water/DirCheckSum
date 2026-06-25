@@ -1,6 +1,5 @@
 import json
 import os
-from functools import partial
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -12,7 +11,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from qfluentwidgets import (
-    Action,
     FluentIcon,
     InfoBar,
 )
@@ -21,15 +19,14 @@ from qfluentwidgets.components import (
     CommandBar,
     InfoBarPosition,
     LineEdit,
+    MessageBox,
     PrimaryPushButton,
     ProgressBar,
     PushButton,
-    RoundMenu,
     TableWidget,
-    TransparentDropDownPushButton,
 )
 
-from src.constant import HASH_ALGORITHM, FILE_STATUS
+from src.constant import FILE_STATUS
 from src.utils.entity import QDirectoryHasher
 from src.utils.logger import getLogger
 from src.utils.platform_util import open_folder
@@ -61,43 +58,12 @@ class VerifyInterface(QWidget):
 
     def _setupTopLayout(self):
         """创建功能菜单"""
+        return
         top_layout = QHBoxLayout()
         top_layout.setSpacing(15)
         command_bar = CommandBar()
         command_bar.setToolButtonStyle(Qt.ToolButtonStyle())
         top_layout.addWidget(command_bar, 1)
-
-        # 设置校验和算法按钮
-        layout_button = TransparentDropDownPushButton(
-            self.tr("校验和算法"), self, FluentIcon.LAYOUT
-        )
-        layout_button.setFixedHeight(34)
-        layout_button.setMinimumWidth(125)
-        layout_button.setToolTip("默认 sha256")
-        layout_menu = RoundMenu(parent=self)
-        actions = []
-        for alg in HASH_ALGORITHM:
-            act = Action(text=alg)
-            act.triggered.connect(partial(self.setHashAlgorithm, alg))
-            actions.append(act)
-        layout_menu.addActions(actions)
-        layout_button.setMenu(layout_menu)
-        command_bar.addWidget(layout_button)
-
-        # 开始按钮、终止按钮
-        top_layout.addStretch()
-        cancel_button = PrimaryPushButton(
-            self.tr("终止"), self, icon=FluentIcon.DELETE
-        )
-        cancel_button.setFixedHeight(34)
-        cancel_button.clicked.connect(self.cancelCompute)
-        top_layout.addWidget(cancel_button)
-        start_button = PrimaryPushButton(
-            self.tr("开始"), self, icon=FluentIcon.PLAY
-        )
-        start_button.setFixedHeight(34)
-        start_button.clicked.connect(self.startCompute)
-        top_layout.addWidget(start_button)
 
         self.main_layout.addLayout(top_layout)
 
@@ -115,9 +81,23 @@ class VerifyInterface(QWidget):
         sec_button.setFixedHeight(34)
         sec_button.clicked.connect(self.openDirectoryFolder)
 
+        # 开始按钮、终止按钮
+        cancel_button = PrimaryPushButton(
+            self.tr("终止"), self, icon=FluentIcon.DELETE
+        )
+        cancel_button.setFixedHeight(34)
+        cancel_button.clicked.connect(self._cancelCompute)
+        self.start_button = PrimaryPushButton(
+            self.tr("开始"), self, icon=FluentIcon.PLAY
+        )
+        self.start_button.setFixedHeight(34)
+        self.start_button.clicked.connect(self._startCompute)
+
         sec_layout.addWidget(sec_label)
         sec_layout.addWidget(self.sec_input)
         sec_layout.addWidget(sec_button)
+        sec_layout.addWidget(cancel_button)
+        sec_layout.addWidget(self.start_button)
         self.main_layout.addLayout(sec_layout)
 
     def _setupTableLayout(self):
@@ -192,7 +172,7 @@ class VerifyInterface(QWidget):
                 parent=self
             )
 
-    def startCompute(self):
+    def _startCompute(self):
         """开始按钮的功能"""
         if self.sec_input.displayText() == "":
             InfoBar.warning(
@@ -228,7 +208,7 @@ class VerifyInterface(QWidget):
         except FileNotFoundError:
             InfoBar.error(
                 "错误",
-                f"{self.dirHasher.hash_algorithm}.json 不存在",
+                "checksum.json 不存在",
                 duration=3000,
                 position=InfoBarPosition.TOP,
                 parent=self
@@ -237,7 +217,7 @@ class VerifyInterface(QWidget):
         except json.JSONDecodeError:
             InfoBar.error(
                 "错误",
-                f"{self.dirHasher.hash_algorithm}.json 不完整",
+                "checksum.json 不完整",
                 duration=3000,
                 position=InfoBarPosition.TOP,
                 parent=self
@@ -245,7 +225,7 @@ class VerifyInterface(QWidget):
             return
         self.dirHasher._computeHash()
 
-    def cancelCompute(self):
+    def _cancelCompute(self):
         """取消当前计算任务"""
         if self.dirHasher.isRunning():
             self.dirHasher.stop()
@@ -292,21 +272,22 @@ class VerifyInterface(QWidget):
 
         everything_is_ok = len(data) == 0
         if everything_is_ok:
-            InfoBar.success(
-                "成功",
-                "所有文件通过校验",
-                duration=3000,
-                position=InfoBarPosition.TOP,
+            m = MessageBox(
+                "通知",
+                "所有文件通过校验检查",
                 parent=self
             )
+            m.cancelButton.setHidden(True)
+            # m.exec() 会让qtbot.waitSignal卡住
+            m.show()
         else:
-            InfoBar.info(
-                "提示",
-                "部分文件存在错误",
-                duration=3000,
-                position=InfoBarPosition.TOP_RIGHT,
+            m = MessageBox(
+                "通知",
+                f"{len(data)} 个文件存在错误，已列在表格中",
                 parent=self
             )
+            m.cancelButton.setHidden(True)
+            m.show()
 
         self.tri_table.setRowCount(len(data))
         for i, s in enumerate(data):
@@ -321,7 +302,7 @@ class VerifyInterface(QWidget):
     def _showProcess(self, process_num: int):
         """展示当前进度"""
         self.process_bar.setHidden(False)
-        percent = int(process_num / self.dirHasher.total_task * 100)
+        percent = int(process_num / max(self.dirHasher.total_task, 1) * 100)
         self.process_bar.setValue(percent)
         if process_num == self.dirHasher.total_task:
             InfoBar.info(

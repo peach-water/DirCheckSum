@@ -5,8 +5,7 @@ import queue
 import time
 from PySide6.QtCore import QThread, Signal
 
-from src.constant import FILE_CHANGED, FILE_LOST, FILE_NEW_ADD
-from src.core.directory_hash import DirectoryHasher, FileState
+from src.core.directory_hash import DirectoryHasher
 from src.hasher import calculateHash
 from src.utils.logger import getLogger
 
@@ -15,18 +14,20 @@ RUNNING = 2
 COMPLETE = 3
 FAILED = 4
 
+
 class TaskThread(QThread):
     file_path: str
     statu: int
     error_message: str
     hash_algorithm: str
     result: str
+
     def __init__(self, path, hash_algorithm):
         super().__init__()
         self.file_path = path
         self.hash_algorithm = hash_algorithm
         self.statu = WAITING
-    
+
     def run(self):
         try:
             self.statu = RUNNING
@@ -36,18 +37,19 @@ class TaskThread(QThread):
             self.statu = FAILED
             self.error_message = str(e)
 
+
 class QDirectoryHasher(QThread, DirectoryHasher):
     process = Signal(int)
     completed = Signal(str)
-    
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.is_running = True # 运行中
-        self.total_task: int = 0 # 文件总数
-        self.completed_task: int = 0 # 完成任务总数
-        self.tasks = queue.Queue() # 记录需要计算哈希值的文件
-        self.max_concurrent_thread: int = 10 # 最大并发
-        self.working_task: dict[str, TaskThread] = {} # 当前正在执行任务
+        self.is_running = True  # 运行中
+        self.total_task: int = 0  # 文件总数
+        self.completed_task: int = 0  # 完成任务总数
+        self.tasks = queue.Queue()  # 记录需要计算哈希值的文件
+        self.max_concurrent_thread: int = 10  # 最大并发
+        self.working_task: dict[str, TaskThread] = {}  # 当前正在执行任务
         self.logger = getLogger("QDirectoryHasher")
 
     def _computeHash(self):
@@ -64,12 +66,13 @@ class QDirectoryHasher(QThread, DirectoryHasher):
             self.logger.warning("QDH directory setting is None")
             return
         if not os.path.exists(self.directory):
-            self.logger.error(f"QDH Path {self.directory} is not exist")
+            self.logger.warning(f"QDH Path {self.directory} is not exist")
             return
         if not os.path.isdir(self.directory):
-            self.logger.warning(f"QDH Path {self.directory} is not a directory")
+            self.logger.warning(
+                f"QDH Path {self.directory} is not a directory")
         self.start()
-    
+
     def run(self):
         for root, dirs, files in os.walk(self.directory):
             for file_name in files:
@@ -82,7 +85,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
             running_thread = sum(
                 1 for th in self.working_task.values() if th.statu == RUNNING
             )
-            if not self.tasks.empty():
+            if not self.tasks.empty() or len(self.working_task) > 0:
                 self.process.emit(self.completed_task)
             else:
                 self.process.emit(self.total_task)
@@ -105,16 +108,18 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                     if val.statu == RUNNING or val.statu == WAITING:
                         continue
                     elif val.statu == COMPLETE:
-                        self.result[key.replace(self.directory, ".")] = val.result
+                        self.result[os.path.relpath(
+                            key, self.directory)] = val.result
                     elif val.statu == FAILED:
-                        self.failed.emit(key.replace(self.directory, "."), val.error_message)
+                        self.failed.emit(os.path.relpath(
+                            key, self.directory), val.error_message)
                     remove_keys.add(key)
                     self.completed_task += 1
 
                 for key in remove_keys:
                     self.working_task.pop(key)
             time.sleep(0.1)
-    
+
     def saveToFile(self, path: str = None):
         """保存文件"""
         if path is None:

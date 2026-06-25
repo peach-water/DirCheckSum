@@ -54,6 +54,6 @@ def calculateDirHash(dir_path: str, hashAlgorithm: str) -> dict[str, str]:
             file_path = os.path.join(root, file_name)
             hash_value = calculateHash(file_path, hashAlgorithm)
             # print("{}:\t{}".format(file_name, hash_value))
-            result[file_path.replace(dir_path, ".")] = hash_value
+            result[os.path.relpath(file_path, dir_path)] = hash_value
     # print(json.dumps(result, indent=2))
     return result
