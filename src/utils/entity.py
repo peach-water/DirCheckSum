@@ -100,6 +100,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                         th.start()
                         running_thread += 1
                 except queue.Empty:
+                    time.sleep(0.1)
                     pass
 
             if len(self.working_task) > 0:
@@ -115,10 +116,12 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                             key, self.directory), val.error_message)
                     remove_keys.add(key)
                     self.completed_task += 1
+                if len(remove_keys) == 0:
+                    time.sleep(0.1)
+                    continue
 
                 for key in remove_keys:
                     self.working_task.pop(key)
-            time.sleep(0.1)
 
     def saveToFile(self, path: str = None):
         """保存文件"""
