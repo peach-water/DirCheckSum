@@ -46,8 +46,10 @@ class HomeInterface(QWidget):
         self.data = []
 
         self.dirHasher = QDirectoryHasher(parent)
-        self.dirHasher.completed.connect(self.updateTable)
+        self.dirHasher.process_info.connect(self._addTabel)
         self.dirHasher.process.connect(self._showprocess)
+
+        self.last_processed = 0 # 记录上次完成的数据量，用于增量更新
 
         self._initUi()
 
@@ -321,6 +323,7 @@ class HomeInterface(QWidget):
             position=InfoBarPosition.TOP_RIGHT,
             parent=self
         )
+        self.last_processed = 0
         self.dirHasher._computeHash()
 
     def _tableDoubleClicked(self, index):
@@ -344,8 +347,8 @@ class HomeInterface(QWidget):
         self.dirHasher.close()
         return super().closeEvent(event)
 
-    def updateTable(self):
-        """更新表格数据"""
+    def updateTableAll(self):
+        """全量更新表格数据，暂时没用上"""
         self.data = self.dirHasher.getHashListReport()
         table = self.data
         if table is None:
@@ -367,3 +370,12 @@ class HomeInterface(QWidget):
             for j, value in enumerate(row):
                 item = QTableWidgetItem(value)
                 self.tri_table.setItem(i, j, item)
+
+    def _addTabel(self, data : str):
+        """向显示表格增加一行"""
+        if len(data.split("|")) != 2:
+            raise RuntimeError("can not put in table, inputfile len is not 2")
+        self.tri_table.insertRow(self.last_processed)
+        for i, da in enumerate(data.split("|")):
+            self.tri_table.setItem(self.last_processed, i, QTableWidgetItem(da))
+        self.last_processed += 1

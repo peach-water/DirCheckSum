@@ -8,6 +8,7 @@ from PySide6.QtCore import QThread, Signal
 from src.core.directory_hash import DirectoryHasher
 from src.hasher import calculateHash
 from src.utils.logger import getLogger
+from src.constant import TASK_FINISHED
 
 WAITING = 1
 RUNNING = 2
@@ -22,8 +23,12 @@ class TaskThread(QThread):
     hash_algorithm: str
     result: str
 
-    def __init__(self, path, hash_algorithm):
+    def __init__(self):
         super().__init__()
+        self.statu = WAITING
+        self.file_path = ""
+
+    def setTask(self, path, hash_algorithm):
         self.file_path = path
         self.hash_algorithm = hash_algorithm
         self.statu = WAITING
@@ -39,8 +44,9 @@ class TaskThread(QThread):
 
 
 class QDirectoryHasher(QThread, DirectoryHasher):
-    process = Signal(int)
-    completed = Signal(str)
+    process = Signal(int) # 发送已处理数量通知
+    completed = Signal(str) # 发送任务完成通知
+    process_info = Signal(str) # 发送单个文件计算结果用于实时更新UI
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
@@ -49,7 +55,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
         self.completed_task: int = 0  # 完成任务总数
         self.tasks = queue.Queue()  # 记录需要计算哈希值的文件
         self.max_concurrent_thread: int = 10  # 最大并发
-        self.working_task: dict[str, TaskThread] = {}  # 当前正在执行任务
+        self.working_task: list[TaskThread] = []  # 当前正在执行任务
         self.logger = getLogger("QDirectoryHasher")
 
     def _computeHash(self):
@@ -61,6 +67,8 @@ class QDirectoryHasher(QThread, DirectoryHasher):
         self.completed_task = 0
         self.tasks = queue.Queue()
         self.working_task.clear()
+        for _ in range(self.max_concurrent_thread):
+            self.working_task.append(TaskThread())
         self.is_running = True
         if self.directory is None:
             self.logger.warning("QDH directory setting is None")
@@ -81,47 +89,49 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                 file_path = os.path.join(root, file_name)
                 self.total_task += 1
                 self.tasks.put(file_path)
+
+        available_keys = queue.SimpleQueue()
+        for id in range(self.max_concurrent_thread):
+            available_keys.put(id)
         while self.is_running:
             running_thread = sum(
-                1 for th in self.working_task.values() if th.statu == RUNNING
+                1 for th in self.working_task if th.statu == RUNNING
             )
-            if not self.tasks.empty() or len(self.working_task) > 0:
+            if not self.tasks.empty() or running_thread > 0:
                 self.process.emit(self.completed_task)
             else:
                 self.process.emit(self.total_task)
-                self.completed.emit("完成")
+                self.completed.emit(TASK_FINISHED)
                 self.is_running = False
-            if running_thread < self.max_concurrent_thread:
-                try:
-                    while running_thread < self.max_concurrent_thread:
-                        task = self.tasks.get_nowait()
-                        th = TaskThread(task, self.hash_algorithm)
-                        self.working_task[task] = th
-                        th.start()
-                        running_thread += 1
-                except queue.Empty:
-                    time.sleep(0.1)
-                    pass
 
-            if len(self.working_task) > 0:
-                remove_keys = set()
-                for key, val in self.working_task.items():
-                    if val.statu == RUNNING or val.statu == WAITING:
-                        continue
-                    elif val.statu == COMPLETE:
-                        self.result[os.path.relpath(
-                            key, self.directory)] = val.result
-                    elif val.statu == FAILED:
-                        self.failed.emit(os.path.relpath(
-                            key, self.directory), val.error_message)
-                    remove_keys.add(key)
-                    self.completed_task += 1
-                if len(remove_keys) == 0:
-                    time.sleep(0.1)
+            try:
+                while not available_keys.empty():
+                    id = available_keys.get(False, 3)
+                    task = self.tasks.get_nowait()
+                    th = self.working_task[id]
+                    th.setTask(task, self.hash_algorithm)
+                    th.start()
+            except queue.Empty:
+                time.sleep(0.1)
+                pass
+
+            for id in range(len(self.working_task)):
+                val = self.working_task[id]
+                key = val.file_path
+                if val.statu == RUNNING or val.statu == WAITING:
                     continue
-
-                for key in remove_keys:
-                    self.working_task.pop(key)
+                elif val.statu == COMPLETE:
+                    self.result[os.path.relpath(
+                        key, self.directory)] = val.result
+                elif val.statu == FAILED:
+                    self.failed.emit(os.path.relpath(
+                        key, self.directory), val.error_message)
+                    continue
+                self.process_info.emit("|".join([key, val.result]))
+                available_keys.put(id)
+                self.completed_task += 1
+            if available_keys.empty():
+                time.sleep(0.1)
 
     def saveToFile(self, path: str = None):
         """保存文件"""

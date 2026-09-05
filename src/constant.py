@@ -12,3 +12,5 @@ FILE_STATUS = {
     FILE_CHANGED: "变化",
     FILE_NEW_ADD: "新增",
 }
+
+TASK_FINISHED = "任务完成"
