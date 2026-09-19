@@ -48,6 +48,7 @@ class HomeInterface(QWidget):
         self.dirHasher = QDirectoryHasher(parent)
         self.dirHasher.process_info.connect(self._addTabel)
         self.dirHasher.process.connect(self._showprocess)
+        self.dirHasher.completed.connect(self._taskFinished)
 
         self.last_processed = 0 # 记录上次完成的数据量，用于增量更新
 
@@ -187,21 +188,18 @@ class HomeInterface(QWidget):
         """
         展示当前进度
         """
-        self.process_bar.setHidden(False)
-        try:
-            percent = int(process_num / self.dirHasher.total_task * 100)
-        except ZeroDivisionError as e:
-            self.logger.error(f"计算 {self.dirHasher.directory} 下未统计到文件")
-            raise ZeroDivisionError(f"计算 {self.dirHasher.directory} 下未统计到文件")
-        self.process_bar.setValue(percent)
-        if process_num == self.dirHasher.total_task:
-            InfoBar.success(
-                "通知",
-                "计算完成",
-                position=InfoBarPosition.TOP_RIGHT,
-                parent=self
-            )
-            self.process_bar.setHidden(True)
+        if self.process_bar.isHidden():
+            self.process_bar.setHidden(False)
+        self.process_bar.setValue(process_num)
+
+    def _taskFinished(self, signal: str) :
+        InfoBar.success(
+            "通知",
+            signal,
+            position=InfoBarPosition.TOP_RIGHT,
+            parent=self
+        )
+        self.process_bar.setHidden(True)
 
     def openDirectoryFolder(self):
         """浏览按钮功能实现"""
@@ -274,12 +272,22 @@ class HomeInterface(QWidget):
 
     def _cancelCompute(self):
         """取消当前计算任务，终止按钮功能"""
-        if self.dirHasher.isRunning():
+        if self.dirHasher.isCancel():
+            return
+        if self.dirHasher.isWorking():
             self.dirHasher.stop()
             self.process_bar.setHidden(True)
 
     def _startCompute(self):
         """开始当前计算任务，开始按钮功能"""
+        if self.dirHasher.isWorking() or self.dirHasher.is_cancel:
+            InfoBar.info(
+                "提示",
+                f"请勿重复点击",
+                position=InfoBarPosition.TOP_RIGHT,
+                parent=self
+            )
+            return
         if self.sec_input.displayText() == "":
             InfoBar.warning(
                 "警告",
@@ -325,6 +333,7 @@ class HomeInterface(QWidget):
         )
         self.last_processed = 0
         self.dirHasher._computeHash()
+        self.tri_table.setRowCount(0)
 
     def _tableDoubleClicked(self, index):
         """处理表格双击事件，打开对应行所在目录"""

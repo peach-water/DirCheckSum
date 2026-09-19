@@ -14,3 +14,4 @@ FILE_STATUS = {
 }
 
 TASK_FINISHED = "任务完成"
+TASK_CANCELED = "任务取消"

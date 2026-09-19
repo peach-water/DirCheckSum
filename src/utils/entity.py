@@ -8,7 +8,7 @@ from PySide6.QtCore import QThread, Signal
 from src.core.directory_hash import DirectoryHasher
 from src.hasher import calculateHash
 from src.utils.logger import getLogger
-from src.constant import TASK_FINISHED
+from src.constant import TASK_FINISHED, TASK_CANCELED
 
 WAITING = 1
 RUNNING = 2
@@ -50,7 +50,8 @@ class QDirectoryHasher(QThread, DirectoryHasher):
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self.is_running = True  # 运行中
+        self.is_running = False  # 运行中
+        self.is_cancel = False # 正在退出，请勿操作
         self.total_task: int = 0  # 文件总数
         self.completed_task: int = 0  # 完成任务总数
         self.tasks = queue.Queue()  # 记录需要计算哈希值的文件
@@ -66,7 +67,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
         self.total_task = 0
         self.completed_task = 0
         self.tasks = queue.Queue()
-        self.working_task.clear()
+        self.clearWorkingThread()
         for _ in range(self.max_concurrent_thread):
             self.working_task.append(TaskThread())
         self.is_running = True
@@ -98,7 +99,7 @@ class QDirectoryHasher(QThread, DirectoryHasher):
                 1 for th in self.working_task if th.statu == RUNNING
             )
             if not self.tasks.empty() or running_thread > 0:
-                self.process.emit(self.completed_task)
+                self.process.emit(int(self.completed_task / self.total_task * 100))
             else:
                 self.process.emit(self.total_task)
                 self.completed.emit(TASK_FINISHED)
@@ -150,9 +151,32 @@ class QDirectoryHasher(QThread, DirectoryHasher):
 
     def stop(self):
         self.is_running = False
+        self.is_cancel = True
+        self.clearWorkingThread(True)
+        self.completed.emit(TASK_CANCELED)
+        self.is_cancel = False
 
     def close(self):
         # TODO 会让主线程退出，调用主QObject的close了
         self.is_running = False
         self.working_task.clear()
         self.tasks = queue.Queue()
+
+    def clearWorkingThread(self, immediately: bool = False):
+        """
+        immediately为True会调用terminate停止线程，可能导致数据丢失
+        """
+        for t in self.working_task:
+            if immediately:
+                t.terminate()
+            else:
+                t.quit()
+            t.wait()
+            t.deleteLater()
+        self.working_task.clear()
+
+    def isWorking(self):
+        return self.is_running
+
+    def isCancel(self):
+        return self.is_cancel
